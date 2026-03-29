@@ -1,6 +1,3 @@
-import * as THREE from 'three';
-import { BikeModelFactory } from '@/rendering/BikeModelFactory';
-
 export class Bike {
   // Position and physics
   x: number;
@@ -33,13 +30,12 @@ export class Bike {
   // Nitro timer
   private nitroTimer: number = 0;
 
-  // Three.js mesh
-  mesh: THREE.Group;
+  // Sprite frame for pseudo-3D renderer
+  spriteFrame: string = 'center';
 
   constructor(x: number, z: number) {
     this.x = x;
     this.z = z;
-    this.mesh = this.createMesh();
   }
 
   get currentMaxSpeed(): number {
@@ -117,23 +113,5 @@ export class Bike {
     this.hasNitro = false;
     this.nitroActive = true;
     this.nitroTimer = 3;
-  }
-
-  updateMesh(roadXOffset: number, roadY: number): void {
-    this.mesh.position.set(this.x + roadXOffset, roadY + 0.5, 0);
-    this.mesh.rotation.z = -this.lean;
-
-    // Flash when crashed
-    if (this.crashed) {
-      const visible = Math.floor(this.crashTimer * 10) % 2 === 0;
-      this.mesh.visible = visible;
-    } else {
-      this.mesh.visible = true;
-    }
-  }
-
-  private createMesh(): THREE.Group {
-    const factory = new BikeModelFactory();
-    return factory.createPlayerBike();
   }
 }

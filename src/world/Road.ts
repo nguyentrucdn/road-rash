@@ -1,7 +1,5 @@
-import * as THREE from 'three';
 import { RoadSegment, SEGMENT_LENGTH } from '@/world/RoadSegment';
 import { TrackData } from '@/tracks/TrackData';
-import { RoadRenderer } from '@/rendering/RoadRenderer';
 
 const VISIBLE_SEGMENTS = 150;
 const BEHIND_SEGMENTS = 10;
@@ -11,13 +9,10 @@ export class Road {
   private cumulativeCurve: number[] = [];
   private cumulativeHill: number[] = [];
   readonly totalSegments: number;
-  private roadGroup = new THREE.Group();
-  private renderer: RoadRenderer;
 
   constructor(private track: TrackData) {
     this.segments = track.generateSegments();
     this.totalSegments = this.segments.length;
-    this.renderer = new RoadRenderer(this, track.roadColor, track.shoulderColor);
     let cx = 0, cy = 0;
     for (let i = 0; i < this.segments.length; i++) {
       this.cumulativeCurve.push(cx);
@@ -54,15 +49,6 @@ export class Road {
   getWidth(z: number): number {
     return this.getSegmentAt(z).width;
   }
-
-  buildMesh(playerZ: number): THREE.Group {
-    this.renderer.rebuild(playerZ);
-    return this.roadGroup;
-  }
-
-  getGroup(): THREE.Group { return this.renderer.getGroup(); }
-
-  getMarkingsGroup(): THREE.Group { return this.renderer.getMarkingsGroup(); }
 
   get trackLength(): number { return this.totalSegments * SEGMENT_LENGTH; }
 }

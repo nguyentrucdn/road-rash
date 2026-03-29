@@ -1,6 +1,4 @@
 import { Bike } from '@/entities/Bike';
-import { BikeModelFactory } from '@/rendering/BikeModelFactory';
-import { Road } from '@/world/Road';
 import { clamp, randomRange } from '@/utils/MathUtils';
 import { CombatSystem } from '@/combat/CombatSystem';
 import { AttackType } from '@/combat/AttackTypes';
@@ -10,12 +8,6 @@ export enum AiPersonality {
   Defensive = 'defensive',
   Racer = 'racer',
 }
-
-const PERSONALITY_COLORS: Record<AiPersonality, number> = {
-  [AiPersonality.Aggressive]: 0xff8800,
-  [AiPersonality.Defensive]: 0x44aa44,
-  [AiPersonality.Racer]: 0x8844ff,
-};
 
 export class AiBike {
   bike: Bike;
@@ -31,11 +23,6 @@ export class AiBike {
     this.targetSpeed = this.bike.maxSpeed * randomRange(0.7, 0.9);
     this.targetLane = randomRange(-0.5, 0.5);
     this.laneChangeInterval = randomRange(2, 5);
-
-    // Replace bike mesh with personality-specific model
-    const factory = new BikeModelFactory();
-    const newMesh = factory.createAiBike(personality, PERSONALITY_COLORS[personality]);
-    this.bike.mesh = newMesh;
   }
 
   updateRacing(dt: number): void {
@@ -104,12 +91,5 @@ export class AiBike {
         }
         break;
     }
-  }
-
-  updateMesh(road: Road, playerZ: number): void {
-    const roadX = road.getRoadXOffset(this.bike.z);
-    const roadY = road.getElevation(this.bike.z);
-    this.bike.updateMesh(roadX, roadY);
-    this.bike.mesh.position.z = -(this.bike.z - playerZ);
   }
 }

@@ -1,5 +1,4 @@
 // src/effects/WeatherSystem.ts
-import * as THREE from 'three';
 import { getWeatherConfig, WeatherState, TrackWeatherConfig } from '@/effects/WeatherConfig';
 
 export interface WeatherProperties {
@@ -30,11 +29,6 @@ export class WeatherSystem {
   private transitionProgress = 1; // 1 = fully transitioned
   private transitionDuration = 10; // seconds
 
-  // Particle system
-  private particles: THREE.Points | null = null;
-  private particlePositions: Float32Array | null = null;
-  private particleCount = 500;
-
   constructor(trackName: string) {
     this.config = getWeatherConfig(trackName);
     this.currentState = this.config.initial;
@@ -63,9 +57,6 @@ export class WeatherSystem {
     if (this.transitionProgress < 1) {
       this.transitionProgress = Math.min(1, this.transitionProgress + dt / this.transitionDuration);
     }
-
-    // Update particles
-    this.updateParticles(dt);
   }
 
   getWeatherProperties(): WeatherProperties {
@@ -82,110 +73,5 @@ export class WeatherSystem {
       lightingTint: to.lightingTint,
       lightingIntensity: from.lightingIntensity + (to.lightingIntensity - from.lightingIntensity) * t,
     };
-  }
-
-  initParticles(scene: THREE.Scene): void {
-    this.particlePositions = new Float32Array(this.particleCount * 3);
-    for (let i = 0; i < this.particleCount; i++) {
-      this.particlePositions[i * 3] = (Math.random() - 0.5) * 40;
-      this.particlePositions[i * 3 + 1] = Math.random() * 20;
-      this.particlePositions[i * 3 + 2] = (Math.random() - 0.5) * 100;
-    }
-
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(this.particlePositions, 3));
-
-    const mat = new THREE.PointsMaterial({
-      color: 0xffffff,
-      size: 0.1,
-      transparent: true,
-      opacity: 0,
-    });
-
-    this.particles = new THREE.Points(geo, mat);
-    scene.add(this.particles);
-  }
-
-  private updateParticles(dt: number): void {
-    if (!this.particles || !this.particlePositions) return;
-
-    const props = this.getWeatherProperties();
-    const mat = this.particles.material as THREE.PointsMaterial;
-
-    if (props.particleType === 'none') {
-      mat.opacity = 0;
-      return;
-    }
-
-    mat.opacity = props.particleIntensity * 0.6;
-
-    // Color and behavior by type
-    switch (props.particleType) {
-      case 'rain':
-        mat.color.setHex(0xaabbcc);
-        mat.size = 0.08;
-        for (let i = 0; i < this.particleCount; i++) {
-          this.particlePositions[i * 3 + 1] -= dt * 30; // fall fast
-          this.particlePositions[i * 3 + 2] -= dt * 5;  // angle
-          if (this.particlePositions[i * 3 + 1] < 0) {
-            this.particlePositions[i * 3 + 1] = 20;
-            this.particlePositions[i * 3] = (Math.random() - 0.5) * 40;
-          }
-        }
-        break;
-
-      case 'snow':
-        mat.color.setHex(0xffffff);
-        mat.size = 0.15;
-        for (let i = 0; i < this.particleCount; i++) {
-          this.particlePositions[i * 3 + 1] -= dt * 3;
-          this.particlePositions[i * 3] += Math.sin(Date.now() * 0.001 + i) * dt * 0.5;
-          if (this.particlePositions[i * 3 + 1] < 0) {
-            this.particlePositions[i * 3 + 1] = 20;
-          }
-        }
-        break;
-
-      case 'dust':
-        mat.color.setHex(0xccaa77);
-        mat.size = 0.2;
-        for (let i = 0; i < this.particleCount; i++) {
-          this.particlePositions[i * 3] += dt * props.windStrength * 15;
-          this.particlePositions[i * 3 + 1] += Math.sin(Date.now() * 0.002 + i) * dt;
-          if (this.particlePositions[i * 3] > 20) {
-            this.particlePositions[i * 3] = -20;
-          }
-        }
-        break;
-
-      case 'leaves':
-        mat.color.setHex(0x886633);
-        mat.size = 0.25;
-        for (let i = 0; i < this.particleCount; i++) {
-          this.particlePositions[i * 3] += dt * props.windStrength * 12;
-          this.particlePositions[i * 3 + 1] += Math.sin(Date.now() * 0.003 + i) * dt * 2;
-          this.particlePositions[i * 3 + 2] += Math.cos(Date.now() * 0.002 + i) * dt;
-          if (this.particlePositions[i * 3] > 20) {
-            this.particlePositions[i * 3] = -20;
-            this.particlePositions[i * 3 + 1] = Math.random() * 10;
-          }
-        }
-        break;
-
-      case 'smog':
-        mat.color.setHex(0x998866);
-        mat.size = 0.4;
-        for (let i = 0; i < this.particleCount; i++) {
-          this.particlePositions[i * 3] += (Math.random() - 0.5) * dt;
-          this.particlePositions[i * 3 + 1] += (Math.random() - 0.5) * dt * 0.5;
-        }
-        break;
-    }
-
-    (this.particles.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
-  }
-
-  destroy(scene: THREE.Scene): void {
-    if (this.particles) scene.remove(this.particles);
   }
 }

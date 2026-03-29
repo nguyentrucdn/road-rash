@@ -1,20 +1,15 @@
-import * as THREE from 'three';
 import { TrafficVehicle } from '@/world/TrafficVehicle';
 import { Road } from '@/world/Road';
 import { randomRange } from '@/utils/MathUtils';
-import { VehicleFactory } from '@/rendering/VehicleFactory';
 
 export class TrafficManager {
   private vehicles: TrafficVehicle[] = [];
-  private scene: THREE.Scene;
   private road: Road;
   private density: number;
   private spawnTimer = 0;
   private spawnInterval: number;
-  private vehicleFactory = new VehicleFactory();
 
-  constructor(scene: THREE.Scene, road: Road, density: number) {
-    this.scene = scene;
+  constructor(road: Road, density: number) {
     this.road = road;
     this.density = density;
     this.spawnInterval = Math.max(0.3, 2 - density * 2);
@@ -28,15 +23,9 @@ export class TrafficManager {
     }
     for (const v of this.vehicles) {
       v.update(dt);
-      const roadX = this.road.getRoadXOffset(v.z);
-      const roadY = this.road.getElevation(v.z);
-      v.updateMesh(roadX, roadY, playerZ);
       if (Math.abs(v.z - playerZ) > 500) v.active = false;
     }
-    this.vehicles = this.vehicles.filter((v) => {
-      if (!v.active) { this.scene.remove(v.mesh); return false; }
-      return true;
-    });
+    this.vehicles = this.vehicles.filter((v) => v.active);
   }
 
   private spawnVehicle(playerZ: number): void {
@@ -45,11 +34,16 @@ export class TrafficManager {
     const direction: 1 | -1 = Math.random() > 0.5 ? 1 : -1;
     const spawnZ = direction === 1 ? playerZ + randomRange(100, 300) : playerZ + randomRange(80, 250);
     const laneX = direction === 1 ? randomRange(0, halfWidth - 1) : randomRange(-halfWidth + 1, 0);
-    const vehicleType = VehicleFactory.randomType();
-    const vehicleMesh = this.vehicleFactory.create(vehicleType);
-    const vehicle = new TrafficVehicle(laneX, spawnZ, direction, vehicleMesh);
+
+    const types = ['sedan', 'pickup', 'suv', 'bus', 'semi', 'sports'];
+    const vehicleType = types[Math.floor(Math.random() * types.length)];
+    const dims: Record<string, [number, number]> = {
+      sedan: [1.8, 4.0], pickup: [2.0, 5.0], suv: [2.0, 4.5],
+      bus: [2.5, 8.0], semi: [2.5, 12.0], sports: [1.9, 3.5],
+    };
+    const [w, l] = dims[vehicleType];
+    const vehicle = new TrafficVehicle(laneX, spawnZ, direction, vehicleType, w, l);
     this.vehicles.push(vehicle);
-    this.scene.add(vehicle.mesh);
   }
 
   checkCollision(bikeX: number, bikeZ: number, bikeSpeed: number): number {
@@ -64,5 +58,9 @@ export class TrafficManager {
       }
     }
     return 0;
+  }
+
+  getVehicles(): TrafficVehicle[] {
+    return this.vehicles;
   }
 }

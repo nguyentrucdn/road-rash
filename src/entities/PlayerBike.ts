@@ -38,9 +38,6 @@ export class PlayerBike {
     if (Math.abs(this.bike.x) > roadHalfWidth) this.bike.speed *= (1 - 0.5 * dt);
     if (this.input.justPressed(GameAction.Nitro)) this.bike.activateNitro();
     this.bike.updatePosition(dt);
-    const roadX = this.road.getRoadXOffset(this.bike.z);
-    const roadY = this.road.getElevation(this.bike.z);
-    this.bike.updateMesh(roadX, roadY);
   }
 
   resolveAttacks(targets: Bike[], combat: CombatSystem): AttackResult | null {
