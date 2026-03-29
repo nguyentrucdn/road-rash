@@ -146,6 +146,7 @@ class Game {
     // Road
     this.road = new Road(track);
     this.scene.add(this.road.getGroup());
+    this.scene.add(this.road.getMarkingsGroup());
 
     // Environment
     this.environment = new Environment(track, this.road);
