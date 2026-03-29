@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { GameLoop } from '@/core/GameLoop';
+import { InputManager } from '@/core/InputManager';
 import { Road } from '@/world/Road';
+import { PlayerBike } from '@/entities/PlayerBike';
 import { desertTrack } from '@/tracks/desert';
 
 const container = document.getElementById('game')!;
@@ -14,7 +16,6 @@ scene.background = new THREE.Color(desertTrack.skyColor);
 scene.fog = new THREE.FogExp2(desertTrack.fogColor, desertTrack.fogDensity);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
-camera.position.set(0, 3, 5);
 
 const dirLight = new THREE.DirectionalLight(0xffffff, 1);
 dirLight.position.set(5, 10, 5);
@@ -29,11 +30,14 @@ ground.rotation.x = -Math.PI / 2;
 ground.position.y = -0.1;
 scene.add(ground);
 
+const input = new InputManager();
+input.bindDom();
+
 const road = new Road(desertTrack);
 scene.add(road.getGroup());
 
-let playerZ = 0;
-const speed = 40;
+const player = new PlayerBike(input, road, 0, 0);
+scene.add(player.bike.mesh);
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -42,13 +46,17 @@ window.addEventListener('resize', () => {
 });
 
 function update(dt: number): void {
-  playerZ += speed * dt;
-  if (playerZ >= road.trackLength - 100) playerZ = 0;
-  road.buildMesh(playerZ);
-  const roadX = road.getRoadXOffset(playerZ);
-  const roadY = road.getElevation(playerZ);
-  camera.position.set(roadX, roadY + 3, 0);
-  camera.lookAt(roadX + road.getRoadXOffset(playerZ + 50) - roadX, roadY + road.getElevation(playerZ + 50) - roadY + 2, -50);
+  player.update(dt);
+  road.buildMesh(player.bike.z);
+  const roadX = road.getRoadXOffset(player.bike.z);
+  const roadY = road.getElevation(player.bike.z);
+  const targetCamPos = new THREE.Vector3(player.bike.x + roadX, roadY + 3, 5);
+  camera.position.lerp(targetCamPos, 0.1);
+  const lookTarget = new THREE.Vector3(player.bike.x + roadX, roadY + 1.5, -30);
+  camera.lookAt(lookTarget);
+  camera.fov = 75 + (player.bike.speed / player.bike.maxSpeed) * 15;
+  camera.updateProjectionMatrix();
+  input.endFrame();
 }
 
 function render(): void {
