@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { TrafficVehicle } from '@/world/TrafficVehicle';
 import { Road } from '@/world/Road';
 import { randomRange } from '@/utils/MathUtils';
+import { VehicleFactory } from '@/rendering/VehicleFactory';
 
 export class TrafficManager {
   private vehicles: TrafficVehicle[] = [];
@@ -10,6 +11,7 @@ export class TrafficManager {
   private density: number;
   private spawnTimer = 0;
   private spawnInterval: number;
+  private vehicleFactory = new VehicleFactory();
 
   constructor(scene: THREE.Scene, road: Road, density: number) {
     this.scene = scene;
@@ -43,7 +45,9 @@ export class TrafficManager {
     const direction: 1 | -1 = Math.random() > 0.5 ? 1 : -1;
     const spawnZ = direction === 1 ? playerZ + randomRange(100, 300) : playerZ + randomRange(80, 250);
     const laneX = direction === 1 ? randomRange(0, halfWidth - 1) : randomRange(-halfWidth + 1, 0);
-    const vehicle = new TrafficVehicle(laneX, spawnZ, direction);
+    const vehicleType = VehicleFactory.randomType();
+    const vehicleMesh = this.vehicleFactory.create(vehicleType);
+    const vehicle = new TrafficVehicle(laneX, spawnZ, direction, vehicleMesh);
     this.vehicles.push(vehicle);
     this.scene.add(vehicle.mesh);
   }

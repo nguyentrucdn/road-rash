@@ -8,24 +8,21 @@ export class TrafficVehicle {
   direction: 1 | -1;
   width: number;
   length: number;
-  mesh: THREE.Mesh;
+  mesh: THREE.Group;
   active = true;
 
-  constructor(x: number, z: number, direction: 1 | -1) {
+  constructor(x: number, z: number, direction: 1 | -1, vehicleMesh: THREE.Group) {
     this.x = x;
     this.z = z;
     this.direction = direction;
     this.speed = direction === 1 ? randomRange(15, 30) : randomRange(25, 45);
-    this.width = randomRange(1.5, 2.5);
-    this.length = randomRange(3, 6);
-    const color = direction === 1
-      ? [0x4488cc, 0x44cc88, 0xcccc44, 0xcc8844][Math.floor(Math.random() * 4)]
-      : [0xcc4444, 0x884444, 0xcc6644, 0xaa4444][Math.floor(Math.random() * 4)];
-    this.mesh = new THREE.Mesh(
-      new THREE.BoxGeometry(this.width, 1.2, this.length),
-      new THREE.MeshStandardMaterial({ color, flatShading: true })
-    );
-    this.mesh.position.y = 0.6;
+    this.mesh = vehicleMesh;
+
+    // Get bounding box for collision dimensions
+    const box = new THREE.Box3().setFromObject(vehicleMesh);
+    const size = box.getSize(new THREE.Vector3());
+    this.width = size.x;
+    this.length = size.z;
   }
 
   update(dt: number): void {
