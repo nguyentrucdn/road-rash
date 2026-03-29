@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { GameLoop } from '@/core/GameLoop';
-import { InputManager } from '@/core/InputManager';
+import { InputManager, GameAction } from '@/core/InputManager';
 import { Road } from '@/world/Road';
 import { PlayerBike } from '@/entities/PlayerBike';
 import { desertTrack } from '@/tracks/desert';
@@ -8,6 +8,7 @@ import { AiBike, AiPersonality } from '@/entities/AiBike';
 import { randomRange } from '@/utils/MathUtils';
 import { TrafficManager } from '@/world/TrafficManager';
 import { CombatSystem } from '@/combat/CombatSystem';
+import { WeaponPickup, WeaponType } from '@/entities/Weapon';
 
 const container = document.getElementById('game')!;
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -56,6 +57,20 @@ const aiBikes: AiBike[] = personalities.map((p, i) => {
   return ai;
 });
 
+// Spawn weapons at weapon pickup segments
+const weapons: WeaponPickup[] = [];
+const weaponTypes: WeaponType[] = ['chain', 'club', 'crowbar'];
+const segments = desertTrack.generateSegments();
+for (const seg of segments) {
+  if (seg.weaponPickup) {
+    const type = weaponTypes[Math.floor(Math.random() * weaponTypes.length)];
+    const wx = randomRange(-3, 3);
+    const pickup = new WeaponPickup(wx, seg.worldZ, type);
+    weapons.push(pickup);
+    scene.add(pickup.mesh);
+  }
+}
+
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
@@ -97,6 +112,20 @@ function update(dt: number): void {
     const aiDmg = traffic.checkCollision(ai.bike.x, ai.bike.z, ai.bike.speed);
     if (aiDmg >= 100) ai.bike.crash();
     else if (aiDmg > 0) ai.bike.speed *= 0.3;
+  }
+
+  // Weapons
+  for (const w of weapons) {
+    if (w.collected) continue;
+    const roadX = road.getRoadXOffset(w.z);
+    const roadY = road.getElevation(w.z);
+    w.update(dt);
+    w.updateMesh(roadX, roadY, player.bike.z);
+    if (input.justPressed(GameAction.GrabWeapon) && w.checkPickup(player.bike.x, player.bike.z)) {
+      player.bike.weapon = w.type;
+      w.collected = true;
+      scene.remove(w.mesh);
+    }
   }
 
   road.buildMesh(player.bike.z);
