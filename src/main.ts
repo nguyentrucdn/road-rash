@@ -13,6 +13,11 @@ import { ResultsScreen, RaceResults } from '@/ui/ResultsScreen';
 import { PauseMenu } from '@/ui/PauseMenu';
 import { TrackData } from '@/tracks/TrackData';
 import { desertTrack } from '@/tracks/desert';
+import { coastTrack } from '@/tracks/coast';
+import { cityTrack } from '@/tracks/city';
+import { mountainTrack } from '@/tracks/mountain';
+import { nightTrack } from '@/tracks/night';
+import { canyonTrack } from '@/tracks/canyon';
 import { randomRange } from '@/utils/MathUtils';
 
 type GameState = 'menu' | 'racing' | 'results';
@@ -42,7 +47,14 @@ class Game {
   private menuScreen: MenuScreen | null = null;
   private resultsScreen: ResultsScreen | null = null;
 
-  private tracks: TrackData[] = [desertTrack]; // more tracks added later
+  private tracks: TrackData[] = [
+    desertTrack,
+    coastTrack,
+    cityTrack,
+    mountainTrack,
+    nightTrack,
+    canyonTrack,
+  ];
 
   constructor() {
     const container = document.getElementById('game')!;
