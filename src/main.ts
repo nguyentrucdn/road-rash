@@ -3,156 +3,259 @@ import { GameLoop } from '@/core/GameLoop';
 import { InputManager, GameAction } from '@/core/InputManager';
 import { Road } from '@/world/Road';
 import { PlayerBike } from '@/entities/PlayerBike';
-import { desertTrack } from '@/tracks/desert';
 import { AiBike, AiPersonality } from '@/entities/AiBike';
-import { randomRange } from '@/utils/MathUtils';
 import { TrafficManager } from '@/world/TrafficManager';
 import { CombatSystem } from '@/combat/CombatSystem';
 import { WeaponPickup, WeaponType } from '@/entities/Weapon';
 import { HUD } from '@/ui/HUD';
+import { MenuScreen } from '@/ui/MenuScreen';
+import { ResultsScreen, RaceResults } from '@/ui/ResultsScreen';
+import { PauseMenu } from '@/ui/PauseMenu';
+import { TrackData } from '@/tracks/TrackData';
+import { desertTrack } from '@/tracks/desert';
+import { randomRange } from '@/utils/MathUtils';
 
-const container = document.getElementById('game')!;
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-container.appendChild(renderer.domElement);
+type GameState = 'menu' | 'racing' | 'results';
 
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(desertTrack.skyColor);
-scene.fog = new THREE.FogExp2(desertTrack.fogColor, desertTrack.fogDensity);
+class Game {
+  private renderer: THREE.WebGLRenderer;
+  private scene: THREE.Scene;
+  private camera: THREE.PerspectiveCamera;
+  private input: InputManager;
+  private gameLoop: GameLoop;
+  private state: GameState = 'menu';
 
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
+  // Racing state
+  private road!: Road;
+  private player!: PlayerBike;
+  private aiBikes: AiBike[] = [];
+  private traffic!: TrafficManager;
+  private combat = new CombatSystem();
+  private weapons: WeaponPickup[] = [];
+  private hud!: HUD;
+  private pauseMenu!: PauseMenu;
+  private raceTime = 0;
+  private stats = { hitsLanded: 0, knockoffs: 0, weaponsGrabbed: 0 };
+  private currentTrack!: TrackData;
 
-const dirLight = new THREE.DirectionalLight(0xffffff, 1);
-dirLight.position.set(5, 10, 5);
-scene.add(dirLight);
-scene.add(new THREE.AmbientLight(0x404040, 0.5));
+  // UI
+  private menuScreen: MenuScreen | null = null;
+  private resultsScreen: ResultsScreen | null = null;
 
-const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(500, 5000),
-  new THREE.MeshStandardMaterial({ color: desertTrack.groundColor })
-);
-ground.rotation.x = -Math.PI / 2;
-ground.position.y = -0.1;
-scene.add(ground);
+  private tracks: TrackData[] = [desertTrack]; // more tracks added later
 
-const input = new InputManager();
-input.bindDom();
+  constructor() {
+    const container = document.getElementById('game')!;
+    this.renderer = new THREE.WebGLRenderer({ antialias: true });
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    container.appendChild(this.renderer.domElement);
 
-const road = new Road(desertTrack);
-scene.add(road.getGroup());
+    this.scene = new THREE.Scene();
+    this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
 
-const traffic = new TrafficManager(scene, road, desertTrack.trafficDensity);
-const combat = new CombatSystem();
+    this.input = new InputManager();
+    this.input.bindDom();
 
-const player = new PlayerBike(input, road, 0, 0);
-scene.add(player.bike.mesh);
+    this.gameLoop = new GameLoop(
+      (dt) => this.update(dt),
+      () => this.render(),
+    );
 
-const personalities = [
-  AiPersonality.Aggressive, AiPersonality.Defensive, AiPersonality.Racer,
-  AiPersonality.Aggressive, AiPersonality.Racer,
-];
-const aiBikes: AiBike[] = personalities.map((p, i) => {
-  const ai = new AiBike(randomRange(-3, 3), 20 + i * 5, p);
-  scene.add(ai.bike.mesh);
-  return ai;
-});
+    window.addEventListener('resize', () => {
+      this.camera.aspect = window.innerWidth / window.innerHeight;
+      this.camera.updateProjectionMatrix();
+      this.renderer.setSize(window.innerWidth, window.innerHeight);
+    });
 
-const hud = new HUD();
-let raceTime = 0;
-
-// Spawn weapons at weapon pickup segments
-const weapons: WeaponPickup[] = [];
-const weaponTypes: WeaponType[] = ['chain', 'club', 'crowbar'];
-const segments = desertTrack.generateSegments();
-for (const seg of segments) {
-  if (seg.weaponPickup) {
-    const type = weaponTypes[Math.floor(Math.random() * weaponTypes.length)];
-    const wx = randomRange(-3, 3);
-    const pickup = new WeaponPickup(wx, seg.worldZ, type);
-    weapons.push(pickup);
-    scene.add(pickup.mesh);
-  }
-}
-
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
-
-function update(dt: number): void {
-  player.update(dt);
-  for (const ai of aiBikes) {
-    ai.applyRubberBanding(player.bike.z, ai.bike.z);
-    const roadWidth = road.getWidth(ai.bike.z);
-    const roadX = road.getRoadXOffset(ai.bike.z);
-    ai.updateSteering(roadX, roadWidth, dt);
-    ai.updateRacing(dt);
-    const seg = road.getSegmentAt(ai.bike.z);
-    ai.bike.x -= seg.curve * ai.bike.speed * dt * 0.02;
-    ai.updateMesh(road, player.bike.z);
-  }
-  // Traffic
-  traffic.update(dt, player.bike.z);
-
-  // Player-traffic collision
-  const trafficDmg = traffic.checkCollision(player.bike.x, player.bike.z, player.bike.speed);
-  if (trafficDmg > 0) {
-    player.bike.takeDamage(trafficDmg);
-    if (trafficDmg >= 100) player.bike.crash();
-    else player.bike.speed *= 0.3;
+    this.showMenu();
+    this.gameLoop.start();
   }
 
-  // Combat
-  const allBikes = [player.bike, ...aiBikes.map(a => a.bike)];
-  player.resolveAttacks(aiBikes.map(a => a.bike), combat);
-  for (const ai of aiBikes) {
-    ai.updateCombat(allBikes, combat, dt);
+  private showMenu(): void {
+    this.state = 'menu';
+    this.menuScreen = new MenuScreen(this.tracks, (track) => this.startRace(track));
   }
 
-  // AI-traffic collisions
-  for (const ai of aiBikes) {
-    const aiDmg = traffic.checkCollision(ai.bike.x, ai.bike.z, ai.bike.speed);
-    if (aiDmg >= 100) ai.bike.crash();
-    else if (aiDmg > 0) ai.bike.speed *= 0.3;
-  }
+  private startRace(track: TrackData): void {
+    this.currentTrack = track;
+    this.state = 'racing';
+    this.raceTime = 0;
+    this.stats = { hitsLanded: 0, knockoffs: 0, weaponsGrabbed: 0 };
 
-  // Weapons
-  for (const w of weapons) {
-    if (w.collected) continue;
-    const roadX = road.getRoadXOffset(w.z);
-    const roadY = road.getElevation(w.z);
-    w.update(dt);
-    w.updateMesh(roadX, roadY, player.bike.z);
-    if (input.justPressed(GameAction.GrabWeapon) && w.checkPickup(player.bike.x, player.bike.z)) {
-      player.bike.weapon = w.type;
-      w.collected = true;
-      scene.remove(w.mesh);
+    // Clear scene
+    while (this.scene.children.length > 0) this.scene.remove(this.scene.children[0]);
+
+    // Setup scene
+    this.scene.background = new THREE.Color(track.skyColor);
+    this.scene.fog = new THREE.FogExp2(track.fogColor, track.fogDensity);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+    dirLight.position.set(5, 10, 5);
+    this.scene.add(dirLight);
+    this.scene.add(new THREE.AmbientLight(0x404040, 0.5));
+
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(500, 5000),
+      new THREE.MeshStandardMaterial({ color: track.groundColor })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = -0.1;
+    this.scene.add(ground);
+
+    // Road
+    this.road = new Road(track);
+    this.scene.add(this.road.getGroup());
+
+    // Player
+    this.player = new PlayerBike(this.input, this.road, 0, 0);
+    this.scene.add(this.player.bike.mesh);
+
+    // AI
+    const personalities = [
+      AiPersonality.Aggressive, AiPersonality.Defensive, AiPersonality.Racer,
+      AiPersonality.Aggressive, AiPersonality.Racer,
+    ];
+    this.aiBikes = personalities.map((p, i) => {
+      const ai = new AiBike(randomRange(-3, 3), 20 + i * 5, p);
+      this.scene.add(ai.bike.mesh);
+      return ai;
+    });
+
+    // Traffic
+    this.traffic = new TrafficManager(this.scene, this.road, track.trafficDensity);
+
+    // Weapons
+    this.weapons = [];
+    const weaponTypes: WeaponType[] = ['chain', 'club', 'crowbar'];
+    const segments = track.generateSegments();
+    for (const seg of segments) {
+      if (seg.weaponPickup) {
+        const type = weaponTypes[Math.floor(Math.random() * weaponTypes.length)];
+        const pickup = new WeaponPickup(randomRange(-3, 3), seg.worldZ, type);
+        this.weapons.push(pickup);
+        this.scene.add(pickup.mesh);
+      }
     }
+
+    // HUD
+    this.hud = new HUD();
+    this.hud.show();
+
+    // Pause
+    this.pauseMenu = new PauseMenu(
+      () => {},
+      () => { this.pauseMenu.destroy(); this.startRace(track); },
+      () => { this.pauseMenu.destroy(); this.hud.hide(); this.showMenu(); },
+    );
   }
 
-  road.buildMesh(player.bike.z);
-  const roadX = road.getRoadXOffset(player.bike.z);
-  const roadY = road.getElevation(player.bike.z);
-  const targetCamPos = new THREE.Vector3(player.bike.x + roadX, roadY + 3, 5);
-  camera.position.lerp(targetCamPos, 0.1);
-  const lookTarget = new THREE.Vector3(player.bike.x + roadX, roadY + 1.5, -30);
-  camera.lookAt(lookTarget);
-  camera.fov = 75 + (player.bike.speed / player.bike.maxSpeed) * 15;
-  camera.updateProjectionMatrix();
+  private update(dt: number): void {
+    if (this.state !== 'racing') return;
+    if (this.pauseMenu?.isPaused) {
+      if (this.input.justPressed(GameAction.Pause)) this.pauseMenu.toggle();
+      this.input.endFrame();
+      return;
+    }
 
-  // HUD
-  raceTime += dt;
-  const position = HUD.calcPosition(player.bike.z, aiBikes.map(a => a.bike.z));
-  hud.update(player.bike, position, raceTime);
+    if (this.input.justPressed(GameAction.Pause)) {
+      this.pauseMenu.toggle();
+      this.input.endFrame();
+      return;
+    }
 
-  input.endFrame();
+    this.raceTime += dt;
+    this.player.update(dt);
+
+    // AI update
+    const allBikes = [this.player.bike, ...this.aiBikes.map(a => a.bike)];
+    for (const ai of this.aiBikes) {
+      ai.applyRubberBanding(this.player.bike.z, ai.bike.z);
+      const roadWidth = this.road.getWidth(ai.bike.z);
+      const roadX = this.road.getRoadXOffset(ai.bike.z);
+      ai.updateSteering(roadX, roadWidth, dt);
+      ai.updateRacing(dt);
+      const seg = this.road.getSegmentAt(ai.bike.z);
+      ai.bike.x -= seg.curve * ai.bike.speed * dt * 0.02;
+      ai.updateMesh(this.road, this.player.bike.z);
+      ai.updateCombat(allBikes, this.combat, dt);
+    }
+
+    // Traffic
+    this.traffic.update(dt, this.player.bike.z);
+    const trafficDmg = this.traffic.checkCollision(this.player.bike.x, this.player.bike.z, this.player.bike.speed);
+    if (trafficDmg > 0) {
+      this.player.bike.takeDamage(trafficDmg);
+      if (trafficDmg >= 100) this.player.bike.crash();
+      else this.player.bike.speed *= 0.3;
+    }
+    for (const ai of this.aiBikes) {
+      const aiDmg = this.traffic.checkCollision(ai.bike.x, ai.bike.z, ai.bike.speed);
+      if (aiDmg >= 100) ai.bike.crash();
+      else if (aiDmg > 0) ai.bike.speed *= 0.3;
+    }
+
+    // Player combat
+    const result = this.player.resolveAttacks(this.aiBikes.map(a => a.bike), this.combat);
+    if (result?.hit) {
+      this.stats.hitsLanded++;
+      if (result.damage >= 100) this.stats.knockoffs++;
+    }
+
+    // Weapons
+    for (const w of this.weapons) {
+      if (w.collected) continue;
+      const roadX = this.road.getRoadXOffset(w.z);
+      const roadY = this.road.getElevation(w.z);
+      w.update(dt);
+      w.updateMesh(roadX, roadY, this.player.bike.z);
+      if (this.input.justPressed(GameAction.GrabWeapon) && w.checkPickup(this.player.bike.x, this.player.bike.z)) {
+        this.player.bike.weapon = w.type;
+        w.collected = true;
+        this.scene.remove(w.mesh);
+        this.stats.weaponsGrabbed++;
+      }
+    }
+
+    // Road mesh
+    this.road.buildMesh(this.player.bike.z);
+
+    // Camera
+    const roadX = this.road.getRoadXOffset(this.player.bike.z);
+    const roadY = this.road.getElevation(this.player.bike.z);
+    const targetCamPos = new THREE.Vector3(this.player.bike.x + roadX, roadY + 3, 5);
+    this.camera.position.lerp(targetCamPos, 0.1);
+    this.camera.lookAt(new THREE.Vector3(this.player.bike.x + roadX, roadY + 1.5, -30));
+    const baseFov = 75;
+    this.camera.fov = baseFov + (this.player.bike.speed / this.player.bike.maxSpeed) * 15;
+    this.camera.updateProjectionMatrix();
+
+    // HUD
+    const position = HUD.calcPosition(this.player.bike.z, this.aiBikes.map(a => a.bike.z));
+    this.hud.update(this.player.bike, position, this.raceTime);
+
+    // Finish line check
+    if (this.player.bike.z >= this.road.trackLength) {
+      this.finishRace(position);
+    }
+
+    this.input.endFrame();
+  }
+
+  private finishRace(position: number): void {
+    this.state = 'results';
+    this.hud.hide();
+    const results: RaceResults = { position, time: this.raceTime, ...this.stats };
+    this.resultsScreen = new ResultsScreen(
+      results,
+      () => { this.resultsScreen!.destroy(); this.startRace(this.currentTrack); },
+      () => { this.resultsScreen!.destroy(); this.showMenu(); },
+    );
+  }
+
+  private render(): void {
+    this.renderer.render(this.scene, this.camera);
+  }
 }
 
-function render(): void {
-  renderer.render(scene, camera);
-}
-
-const gameLoop = new GameLoop(update, render);
-gameLoop.start();
+new Game();
