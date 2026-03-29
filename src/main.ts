@@ -4,6 +4,8 @@ import { InputManager } from '@/core/InputManager';
 import { Road } from '@/world/Road';
 import { PlayerBike } from '@/entities/PlayerBike';
 import { desertTrack } from '@/tracks/desert';
+import { AiBike, AiPersonality } from '@/entities/AiBike';
+import { randomRange } from '@/utils/MathUtils';
 
 const container = document.getElementById('game')!;
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -39,6 +41,16 @@ scene.add(road.getGroup());
 const player = new PlayerBike(input, road, 0, 0);
 scene.add(player.bike.mesh);
 
+const personalities = [
+  AiPersonality.Aggressive, AiPersonality.Defensive, AiPersonality.Racer,
+  AiPersonality.Aggressive, AiPersonality.Racer,
+];
+const aiBikes: AiBike[] = personalities.map((p, i) => {
+  const ai = new AiBike(randomRange(-3, 3), 20 + i * 5, p);
+  scene.add(ai.bike.mesh);
+  return ai;
+});
+
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
@@ -47,6 +59,16 @@ window.addEventListener('resize', () => {
 
 function update(dt: number): void {
   player.update(dt);
+  for (const ai of aiBikes) {
+    ai.applyRubberBanding(player.bike.z, ai.bike.z);
+    const roadWidth = road.getWidth(ai.bike.z);
+    const roadX = road.getRoadXOffset(ai.bike.z);
+    ai.updateSteering(roadX, roadWidth, dt);
+    ai.updateRacing(dt);
+    const seg = road.getSegmentAt(ai.bike.z);
+    ai.bike.x -= seg.curve * ai.bike.speed * dt * 0.02;
+    ai.updateMesh(road, player.bike.z);
+  }
   road.buildMesh(player.bike.z);
   const roadX = road.getRoadXOffset(player.bike.z);
   const roadY = road.getElevation(player.bike.z);
