@@ -53,6 +53,14 @@ export class MenuScreen {
     }
 
     this.container.appendChild(grid);
+
+    const controls = document.createElement('div');
+    controls.style.cssText = 'margin-top:30px;color:#666;font-size:12px;text-align:center;max-width:600px;';
+    controls.innerHTML = `
+      <p><strong>Controls:</strong> WASD/Arrows = Move | Q/E = Punch | Z/C = Kick | F = Weapon | Shift = Block/Duck | G = Grab | Space = Nitro | Esc = Pause</p>
+    `;
+    this.container.appendChild(controls);
+
     document.body.appendChild(this.container);
   }
 

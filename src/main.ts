@@ -59,6 +59,9 @@ class Game {
   // Audio
   private audio = new AudioManager();
 
+  // Race state
+  private raceFrozen = false;
+
   // UI
   private menuScreen: MenuScreen | null = null;
   private resultsScreen: ResultsScreen | null = null;
@@ -201,10 +204,46 @@ class Game {
       () => { this.pauseMenu.destroy(); this.startRace(track); },
       () => { this.pauseMenu.destroy(); this.hud.hide(); this.showMenu(); },
     );
+
+    // Countdown
+    this.startCountdown();
+  }
+
+  private startCountdown(): void {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+      position:fixed;top:0;left:0;width:100%;height:100%;
+      display:flex;align-items:center;justify-content:center;
+      z-index:90;pointer-events:none;font-family:'Courier New',monospace;
+    `;
+    const text = document.createElement('div');
+    text.style.cssText = 'font-size:120px;color:#fff;text-shadow:3px 3px 0 #000;';
+    overlay.appendChild(text);
+    document.body.appendChild(overlay);
+
+    let count = 3;
+    this.raceFrozen = true;
+
+    const tick = () => {
+      if (count > 0) {
+        text.textContent = String(count);
+        count--;
+        setTimeout(tick, 1000);
+      } else {
+        text.textContent = 'GO!';
+        this.raceFrozen = false;
+        setTimeout(() => overlay.remove(), 500);
+      }
+    };
+    tick();
   }
 
   private update(dt: number): void {
     if (this.state !== 'racing') return;
+    if (this.raceFrozen) {
+      this.input.endFrame();
+      return;
+    }
     if (this.pauseMenu?.isPaused) {
       if (this.input.justPressed(GameAction.Pause)) this.pauseMenu.toggle();
       this.input.endFrame();
