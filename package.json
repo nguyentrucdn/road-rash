@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+    "generate-atlas": "tsx scripts/generate-atlas.ts",
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "npm run generate-atlas && tsc && vite build",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -17,6 +18,8 @@
   },
   "devDependencies": {
     "@types/three": "^0.183.1",
+    "canvas": "^3.2.2",
+    "tsx": "^4.21.0",
     "typescript": "^6.0.2",
     "vite": "^8.0.3",
     "vitest": "^4.1.2"
