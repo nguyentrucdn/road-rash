@@ -9,6 +9,7 @@ import { randomRange } from '@/utils/MathUtils';
 import { TrafficManager } from '@/world/TrafficManager';
 import { CombatSystem } from '@/combat/CombatSystem';
 import { WeaponPickup, WeaponType } from '@/entities/Weapon';
+import { HUD } from '@/ui/HUD';
 
 const container = document.getElementById('game')!;
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -56,6 +57,9 @@ const aiBikes: AiBike[] = personalities.map((p, i) => {
   scene.add(ai.bike.mesh);
   return ai;
 });
+
+const hud = new HUD();
+let raceTime = 0;
 
 // Spawn weapons at weapon pickup segments
 const weapons: WeaponPickup[] = [];
@@ -137,6 +141,12 @@ function update(dt: number): void {
   camera.lookAt(lookTarget);
   camera.fov = 75 + (player.bike.speed / player.bike.maxSpeed) * 15;
   camera.updateProjectionMatrix();
+
+  // HUD
+  raceTime += dt;
+  const position = HUD.calcPosition(player.bike.z, aiBikes.map(a => a.bike.z));
+  hud.update(player.bike, position, raceTime);
+
   input.endFrame();
 }
 
