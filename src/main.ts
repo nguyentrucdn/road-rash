@@ -25,6 +25,7 @@ import { SpeedEffects } from '@/effects/SpeedEffects';
 import { CombatEffects } from '@/effects/CombatEffects';
 import { NitroEffects } from '@/effects/NitroEffects';
 import { AudioManager } from '@/core/AudioManager';
+import { LightingManager } from '@/rendering/LightingManager';
 
 type GameState = 'menu' | 'racing' | 'results';
 
@@ -55,6 +56,9 @@ class Game {
   private speedEffects!: SpeedEffects;
   private combatEffects!: CombatEffects;
   private nitroEffects!: NitroEffects;
+
+  // Lighting
+  private lighting!: LightingManager;
 
   // Audio
   private audio = new AudioManager();
@@ -130,10 +134,8 @@ class Game {
     this.scene.background = new THREE.Color(track.skyColor);
     this.scene.fog = new THREE.FogExp2(track.fogColor, track.fogDensity);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1);
-    dirLight.position.set(5, 10, 5);
-    this.scene.add(dirLight);
-    this.scene.add(new THREE.AmbientLight(0x404040, 0.5));
+    this.lighting = new LightingManager(this.scene, this.renderer);
+    this.lighting.setupForTrack(track);
 
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(500, 5000),
@@ -155,6 +157,8 @@ class Game {
     // Player
     this.player = new PlayerBike(this.input, this.road, 0, 0);
     this.scene.add(this.player.bike.mesh);
+    this.lighting.enableShadowsOn(this.player.bike.mesh);
+    this.lighting.enableReceiveShadows(ground);
 
     // AI
     const personalities = [
@@ -339,6 +343,14 @@ class Game {
     const baseFov = 75;
     this.camera.fov = baseFov + (this.player.bike.speed / this.player.bike.maxSpeed) * 15;
     this.camera.updateProjectionMatrix();
+
+    // Lighting
+    const playerWorldPos = new THREE.Vector3(
+      this.player.bike.x + roadX,
+      roadY,
+      0
+    );
+    this.lighting.update(playerWorldPos);
 
     // HUD
     const position = HUD.calcPosition(this.player.bike.z, this.aiBikes.map(a => a.bike.z));
