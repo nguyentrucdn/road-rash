@@ -27,6 +27,7 @@ import { NitroEffects } from '@/effects/NitroEffects';
 import { AudioManager } from '@/core/AudioManager';
 import { LightingManager } from '@/rendering/LightingManager';
 import { WeatherSystem } from '@/effects/WeatherSystem';
+import { SkyRenderer } from '@/rendering/SkyRenderer';
 
 type GameState = 'menu' | 'racing' | 'results';
 
@@ -63,6 +64,7 @@ class Game {
 
   // Weather
   private weather!: WeatherSystem;
+  private sky!: SkyRenderer;
 
   // Audio
   private audio = new AudioManager();
@@ -134,8 +136,9 @@ class Game {
     // Clear scene
     while (this.scene.children.length > 0) this.scene.remove(this.scene.children[0]);
 
-    // Setup scene
-    this.scene.background = new THREE.Color(track.skyColor);
+    // Setup scene — sky dome with clouds replaces flat background color
+    this.sky = new SkyRenderer(track.skyColor);
+    this.sky.addToScene(this.scene);
     this.scene.fog = new THREE.FogExp2(track.fogColor, track.fogDensity);
 
     this.lighting = new LightingManager(this.scene, this.renderer);
@@ -334,6 +337,7 @@ class Game {
     this.environment.updatePositions(this.player.bike.z, this.road);
 
     // Visual effects
+    this.sky.update(dt);
     this.speedEffects.update(dt, this.player.bike.speed, this.player.bike.maxSpeed);
     const nitroRoadX = this.road.getRoadXOffset(this.player.bike.z);
     this.nitroEffects.update(dt, this.player.bike.x + nitroRoadX, this.player.bike.z, this.player.bike.nitroActive);
