@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { GameLoop } from '@/core/GameLoop';
 
 const container = document.getElementById('game')!;
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -13,7 +14,6 @@ const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerH
 camera.position.set(0, 5, 10);
 camera.lookAt(0, 0, 0);
 
-// Placeholder ground
 const ground = new THREE.Mesh(
   new THREE.PlaneGeometry(100, 100),
   new THREE.MeshStandardMaterial({ color: 0x3a6a2a })
@@ -21,7 +21,6 @@ const ground = new THREE.Mesh(
 ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
 
-// Lighting
 const dirLight = new THREE.DirectionalLight(0xffffff, 1);
 dirLight.position.set(5, 10, 5);
 scene.add(dirLight);
@@ -33,8 +32,13 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-function animate() {
-  requestAnimationFrame(animate);
+function update(_dt: number): void {
+  // Game logic will go here
+}
+
+function render(): void {
   renderer.render(scene, camera);
 }
-animate();
+
+const gameLoop = new GameLoop(update, render);
+gameLoop.start();
