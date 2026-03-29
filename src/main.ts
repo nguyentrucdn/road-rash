@@ -11,6 +11,7 @@ import { HUD } from '@/ui/HUD';
 import { MenuScreen } from '@/ui/MenuScreen';
 import { ResultsScreen, RaceResults } from '@/ui/ResultsScreen';
 import { PauseMenu } from '@/ui/PauseMenu';
+import { TouchControls } from '@/ui/TouchControls';
 import { Environment } from '@/world/Environment';
 import { TrackData } from '@/tracks/TrackData';
 import { desertTrack } from '@/tracks/desert';
@@ -41,6 +42,7 @@ class Game {
   private hud!: HUD;
   private pauseMenu!: PauseMenu;
   private environment!: Environment;
+  private touchControls!: TouchControls;
   private raceTime = 0;
   private stats = { hitsLanded: 0, knockoffs: 0, weaponsGrabbed: 0 };
   private currentTrack!: TrackData;
@@ -159,6 +161,9 @@ class Game {
     // HUD
     this.hud = new HUD();
     this.hud.show();
+
+    // Touch controls
+    this.touchControls = new TouchControls(this.input);
 
     // Pause
     this.pauseMenu = new PauseMenu(
