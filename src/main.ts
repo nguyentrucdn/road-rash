@@ -24,6 +24,7 @@ import { randomRange } from '@/utils/MathUtils';
 import { SpeedEffects } from '@/effects/SpeedEffects';
 import { CombatEffects } from '@/effects/CombatEffects';
 import { NitroEffects } from '@/effects/NitroEffects';
+import { AudioManager } from '@/core/AudioManager';
 
 type GameState = 'menu' | 'racing' | 'results';
 
@@ -55,6 +56,9 @@ class Game {
   private combatEffects!: CombatEffects;
   private nitroEffects!: NitroEffects;
 
+  // Audio
+  private audio = new AudioManager();
+
   // UI
   private menuScreen: MenuScreen | null = null;
   private resultsScreen: ResultsScreen | null = null;
@@ -80,6 +84,15 @@ class Game {
 
     this.input = new InputManager();
     this.input.bindDom();
+
+    // Unlock audio on first user gesture
+    const unlockAudio = () => {
+      this.audio.init();
+      document.removeEventListener('click', unlockAudio);
+      document.removeEventListener('touchstart', unlockAudio);
+    };
+    document.addEventListener('click', unlockAudio);
+    document.addEventListener('touchstart', unlockAudio);
 
     this.gameLoop = new GameLoop(
       (dt) => this.update(dt),
@@ -175,6 +188,10 @@ class Game {
     this.combatEffects = new CombatEffects(this.camera);
     this.nitroEffects = new NitroEffects(this.scene);
 
+    // Audio
+    this.audio.stopEngine();
+    this.audio.startEngine();
+
     // Touch controls
     this.touchControls = new TouchControls(this.input);
 
@@ -239,6 +256,7 @@ class Game {
       this.combatEffects.triggerShake(0.3);
       this.combatEffects.triggerHitFlash();
       if (result.damage >= 25) this.combatEffects.triggerSlowMo();
+      this.audio.playHit();
     }
 
     // Weapons
@@ -253,6 +271,7 @@ class Game {
         w.collected = true;
         this.scene.remove(w.mesh);
         this.stats.weaponsGrabbed++;
+        this.audio.playPickup();
       }
     }
 
@@ -267,6 +286,9 @@ class Game {
     const nitroRoadX = this.road.getRoadXOffset(this.player.bike.z);
     this.nitroEffects.update(dt, this.player.bike.x + nitroRoadX, this.player.bike.z, this.player.bike.nitroActive);
     this.combatEffects.update(dt);
+
+    // Audio
+    this.audio.updateEngine(this.player.bike.speed, this.player.bike.maxSpeed);
 
     // Camera
     const roadX = this.road.getRoadXOffset(this.player.bike.z);
@@ -293,6 +315,7 @@ class Game {
   private finishRace(position: number): void {
     this.state = 'results';
     this.hud.hide();
+    this.audio.stopEngine();
     const results: RaceResults = { position, time: this.raceTime, ...this.stats };
     this.resultsScreen = new ResultsScreen(
       results,
