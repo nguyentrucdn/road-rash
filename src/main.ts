@@ -7,6 +7,7 @@ import { desertTrack } from '@/tracks/desert';
 import { AiBike, AiPersonality } from '@/entities/AiBike';
 import { randomRange } from '@/utils/MathUtils';
 import { TrafficManager } from '@/world/TrafficManager';
+import { CombatSystem } from '@/combat/CombatSystem';
 
 const container = document.getElementById('game')!;
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -40,6 +41,7 @@ const road = new Road(desertTrack);
 scene.add(road.getGroup());
 
 const traffic = new TrafficManager(scene, road, desertTrack.trafficDensity);
+const combat = new CombatSystem();
 
 const player = new PlayerBike(input, road, 0, 0);
 scene.add(player.bike.mesh);
@@ -81,6 +83,13 @@ function update(dt: number): void {
     player.bike.takeDamage(trafficDmg);
     if (trafficDmg >= 100) player.bike.crash();
     else player.bike.speed *= 0.3;
+  }
+
+  // Combat
+  const allBikes = [player.bike, ...aiBikes.map(a => a.bike)];
+  player.resolveAttacks(aiBikes.map(a => a.bike), combat);
+  for (const ai of aiBikes) {
+    ai.updateCombat(allBikes, combat, dt);
   }
 
   // AI-traffic collisions

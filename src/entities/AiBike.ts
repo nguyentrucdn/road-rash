@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { Bike } from '@/entities/Bike';
 import { Road } from '@/world/Road';
 import { clamp, randomRange } from '@/utils/MathUtils';
+import { CombatSystem } from '@/combat/CombatSystem';
+import { AttackType } from '@/combat/AttackTypes';
 
 export enum AiPersonality {
   Aggressive = 'aggressive',
@@ -35,8 +37,9 @@ export class AiBike {
     // The first child of the mesh group is the body box
     const bodyMesh = this.bike.mesh.children[0] as THREE.Mesh;
     if (bodyMesh && bodyMesh.isMesh && bodyMesh.material instanceof THREE.MeshStandardMaterial) {
-      bodyMesh.material = bodyMesh.material.clone();
-      bodyMesh.material.color.setHex(color);
+      const mat = bodyMesh.material.clone() as THREE.MeshStandardMaterial;
+      mat.color.setHex(color);
+      bodyMesh.material = mat;
     }
   }
 
@@ -78,6 +81,33 @@ export class AiBike {
       this.targetSpeed = this.bike.maxSpeed * 0.65;
     } else {
       this.targetSpeed = baseSpeed + (delta / 50) * (this.bike.maxSpeed * 0.2);
+    }
+  }
+
+  updateCombat(targets: Bike[], combat: CombatSystem, _dt: number): void {
+    if (this.bike.crashed) return;
+    const nearTargets = combat.findTargetsInRange(this.bike, targets);
+    if (nearTargets.length === 0) return;
+    const target = nearTargets[0];
+    const dx = target.x - this.bike.x;
+
+    switch (this.personality) {
+      case AiPersonality.Aggressive:
+        if (this.bike.attackCooldown <= 0) {
+          combat.tryAttack(this.bike, target, dx < 0 ? AttackType.PunchLeft : AttackType.PunchRight);
+        }
+        break;
+      case AiPersonality.Defensive:
+        this.bike.isBlocking = Math.random() > 0.7;
+        if (this.bike.attackCooldown <= 0 && Math.random() > 0.6) {
+          combat.tryAttack(this.bike, target, dx < 0 ? AttackType.KickLeft : AttackType.KickRight);
+        }
+        break;
+      case AiPersonality.Racer:
+        if (Math.abs(dx) < 1.5 && this.bike.attackCooldown <= 0 && Math.random() > 0.8) {
+          combat.tryAttack(this.bike, target, dx < 0 ? AttackType.PunchLeft : AttackType.PunchRight);
+        }
+        break;
     }
   }
 

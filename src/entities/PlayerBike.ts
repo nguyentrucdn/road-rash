@@ -1,6 +1,8 @@
 import { Bike } from '@/entities/Bike';
 import { InputManager, GameAction } from '@/core/InputManager';
 import { Road } from '@/world/Road';
+import { CombatSystem, AttackResult } from '@/combat/CombatSystem';
+import { AttackType } from '@/combat/AttackTypes';
 
 export class PlayerBike {
   bike: Bike;
@@ -8,6 +10,17 @@ export class PlayerBike {
     this.bike = new Bike(startX, startZ);
   }
   update(dt: number): void {
+    // Ducking / blocking
+    this.bike.isDucking = false;
+    this.bike.isBlocking = false;
+    if (this.input.isActive(GameAction.Block)) {
+      if (this.input.justPressed(GameAction.Block)) {
+        this.bike.isBlocking = true;
+      } else {
+        this.bike.isDucking = true;
+      }
+    }
+
     if (this.input.isActive(GameAction.Accelerate)) this.bike.accelerate(dt);
     else if (this.input.isActive(GameAction.Brake)) this.bike.brake(dt);
     this.bike.applyDrag(dt);
@@ -28,5 +41,25 @@ export class PlayerBike {
     const roadX = this.road.getRoadXOffset(this.bike.z);
     const roadY = this.road.getElevation(this.bike.z);
     this.bike.updateMesh(roadX, roadY);
+  }
+
+  resolveAttacks(targets: Bike[], combat: CombatSystem): AttackResult | null {
+    let attackType: AttackType | null = null;
+    if (this.input.justPressed(GameAction.PunchLeft)) attackType = AttackType.PunchLeft;
+    else if (this.input.justPressed(GameAction.PunchRight)) attackType = AttackType.PunchRight;
+    else if (this.input.justPressed(GameAction.KickLeft)) attackType = AttackType.KickLeft;
+    else if (this.input.justPressed(GameAction.KickRight)) attackType = AttackType.KickRight;
+    else if (this.input.justPressed(GameAction.UseWeapon) && this.bike.weapon) {
+      const weaponMap: Record<string, AttackType> = {
+        chain: AttackType.WeaponChain, club: AttackType.WeaponClub, crowbar: AttackType.WeaponCrowbar,
+      };
+      attackType = weaponMap[this.bike.weapon] ?? null;
+    }
+    if (!attackType) return null;
+    for (const target of targets) {
+      const result = combat.tryAttack(this.bike, target, attackType);
+      if (result.hit) return result;
+    }
+    return null;
   }
 }
