@@ -6,6 +6,7 @@ import { PlayerBike } from '@/entities/PlayerBike';
 import { desertTrack } from '@/tracks/desert';
 import { AiBike, AiPersonality } from '@/entities/AiBike';
 import { randomRange } from '@/utils/MathUtils';
+import { TrafficManager } from '@/world/TrafficManager';
 
 const container = document.getElementById('game')!;
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -38,6 +39,8 @@ input.bindDom();
 const road = new Road(desertTrack);
 scene.add(road.getGroup());
 
+const traffic = new TrafficManager(scene, road, desertTrack.trafficDensity);
+
 const player = new PlayerBike(input, road, 0, 0);
 scene.add(player.bike.mesh);
 
@@ -69,6 +72,24 @@ function update(dt: number): void {
     ai.bike.x -= seg.curve * ai.bike.speed * dt * 0.02;
     ai.updateMesh(road, player.bike.z);
   }
+  // Traffic
+  traffic.update(dt, player.bike.z);
+
+  // Player-traffic collision
+  const trafficDmg = traffic.checkCollision(player.bike.x, player.bike.z, player.bike.speed);
+  if (trafficDmg > 0) {
+    player.bike.takeDamage(trafficDmg);
+    if (trafficDmg >= 100) player.bike.crash();
+    else player.bike.speed *= 0.3;
+  }
+
+  // AI-traffic collisions
+  for (const ai of aiBikes) {
+    const aiDmg = traffic.checkCollision(ai.bike.x, ai.bike.z, ai.bike.speed);
+    if (aiDmg >= 100) ai.bike.crash();
+    else if (aiDmg > 0) ai.bike.speed *= 0.3;
+  }
+
   road.buildMesh(player.bike.z);
   const roadX = road.getRoadXOffset(player.bike.z);
   const roadY = road.getElevation(player.bike.z);
