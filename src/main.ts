@@ -11,6 +11,7 @@ import { HUD } from '@/ui/HUD';
 import { MenuScreen } from '@/ui/MenuScreen';
 import { ResultsScreen, RaceResults } from '@/ui/ResultsScreen';
 import { PauseMenu } from '@/ui/PauseMenu';
+import { Environment } from '@/world/Environment';
 import { TrackData } from '@/tracks/TrackData';
 import { desertTrack } from '@/tracks/desert';
 import { coastTrack } from '@/tracks/coast';
@@ -39,6 +40,7 @@ class Game {
   private weapons: WeaponPickup[] = [];
   private hud!: HUD;
   private pauseMenu!: PauseMenu;
+  private environment!: Environment;
   private raceTime = 0;
   private stats = { hitsLanded: 0, knockoffs: 0, weaponsGrabbed: 0 };
   private currentTrack!: TrackData;
@@ -118,6 +120,10 @@ class Game {
     // Road
     this.road = new Road(track);
     this.scene.add(this.road.getGroup());
+
+    // Environment
+    this.environment = new Environment(track, this.road);
+    this.scene.add(this.environment.getGroup());
 
     // Player
     this.player = new PlayerBike(this.input, this.road, 0, 0);
@@ -231,6 +237,9 @@ class Game {
 
     // Road mesh
     this.road.buildMesh(this.player.bike.z);
+
+    // Scenery
+    this.environment.updatePositions(this.player.bike.z, this.road);
 
     // Camera
     const roadX = this.road.getRoadXOffset(this.player.bike.z);
