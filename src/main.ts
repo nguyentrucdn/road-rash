@@ -26,6 +26,7 @@ import { CombatEffects } from '@/effects/CombatEffects';
 import { NitroEffects } from '@/effects/NitroEffects';
 import { AudioManager } from '@/core/AudioManager';
 import { LightingManager } from '@/rendering/LightingManager';
+import { WeatherSystem } from '@/effects/WeatherSystem';
 
 type GameState = 'menu' | 'racing' | 'results';
 
@@ -59,6 +60,9 @@ class Game {
 
   // Lighting
   private lighting!: LightingManager;
+
+  // Weather
+  private weather!: WeatherSystem;
 
   // Audio
   private audio = new AudioManager();
@@ -190,6 +194,10 @@ class Game {
     // HUD
     this.hud = new HUD();
     this.hud.show();
+
+    // Weather
+    this.weather = new WeatherSystem(track.name);
+    this.weather.initParticles(this.scene);
 
     // Effects
     this.speedEffects = new SpeedEffects(this.scene);
@@ -343,6 +351,22 @@ class Game {
     const baseFov = 75;
     this.camera.fov = baseFov + (this.player.bike.speed / this.player.bike.maxSpeed) * 15;
     this.camera.updateProjectionMatrix();
+
+    // Weather
+    const raceProgress = this.player.bike.z / this.road.trackLength;
+    this.weather.update(dt, raceProgress);
+    const weatherProps = this.weather.getWeatherProperties();
+
+    // Update fog density based on visibility
+    if (this.scene.fog instanceof THREE.FogExp2) {
+      this.scene.fog.density = 0.002 + (1 - weatherProps.visibility) * 0.008;
+    }
+
+    // Lightning during stormy
+    if (this.weather.getCurrentState() === 'stormy' && Math.random() < 0.002) {
+      this.lighting.triggerLightning();
+      this.combatEffects.triggerHitFlash('rgba(255,255,255,0.5)');
+    }
 
     // Lighting
     const playerWorldPos = new THREE.Vector3(
