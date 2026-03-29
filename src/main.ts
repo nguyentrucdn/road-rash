@@ -21,6 +21,9 @@ import { mountainTrack } from '@/tracks/mountain';
 import { nightTrack } from '@/tracks/night';
 import { canyonTrack } from '@/tracks/canyon';
 import { randomRange } from '@/utils/MathUtils';
+import { SpeedEffects } from '@/effects/SpeedEffects';
+import { CombatEffects } from '@/effects/CombatEffects';
+import { NitroEffects } from '@/effects/NitroEffects';
 
 type GameState = 'menu' | 'racing' | 'results';
 
@@ -46,6 +49,11 @@ class Game {
   private raceTime = 0;
   private stats = { hitsLanded: 0, knockoffs: 0, weaponsGrabbed: 0 };
   private currentTrack!: TrackData;
+
+  // Effects
+  private speedEffects!: SpeedEffects;
+  private combatEffects!: CombatEffects;
+  private nitroEffects!: NitroEffects;
 
   // UI
   private menuScreen: MenuScreen | null = null;
@@ -162,6 +170,11 @@ class Game {
     this.hud = new HUD();
     this.hud.show();
 
+    // Effects
+    this.speedEffects = new SpeedEffects(this.scene);
+    this.combatEffects = new CombatEffects(this.camera);
+    this.nitroEffects = new NitroEffects(this.scene);
+
     // Touch controls
     this.touchControls = new TouchControls(this.input);
 
@@ -223,6 +236,9 @@ class Game {
     if (result?.hit) {
       this.stats.hitsLanded++;
       if (result.damage >= 100) this.stats.knockoffs++;
+      this.combatEffects.triggerShake(0.3);
+      this.combatEffects.triggerHitFlash();
+      if (result.damage >= 25) this.combatEffects.triggerSlowMo();
     }
 
     // Weapons
@@ -245,6 +261,12 @@ class Game {
 
     // Scenery
     this.environment.updatePositions(this.player.bike.z, this.road);
+
+    // Visual effects
+    this.speedEffects.update(dt, this.player.bike.speed, this.player.bike.maxSpeed);
+    const nitroRoadX = this.road.getRoadXOffset(this.player.bike.z);
+    this.nitroEffects.update(dt, this.player.bike.x + nitroRoadX, this.player.bike.z, this.player.bike.nitroActive);
+    this.combatEffects.update(dt);
 
     // Camera
     const roadX = this.road.getRoadXOffset(this.player.bike.z);
