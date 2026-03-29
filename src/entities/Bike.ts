@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { BikeModelFactory } from '@/rendering/BikeModelFactory';
 
 export class Bike {
   // Position and physics
@@ -132,44 +133,7 @@ export class Bike {
   }
 
   private createMesh(): THREE.Group {
-    const group = new THREE.Group();
-
-    // Bike body (red)
-    const bodyGeo = new THREE.BoxGeometry(0.6, 0.5, 1.5);
-    const bodyMat = new THREE.MeshStandardMaterial({ color: 0xff2200, flatShading: true });
-    const body = new THREE.Mesh(bodyGeo, bodyMat);
-    body.position.set(0, 0.5, 0);
-    group.add(body);
-
-    // Front wheel (black)
-    const wheelGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.15, 8);
-    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111, flatShading: true });
-
-    const frontWheel = new THREE.Mesh(wheelGeo, wheelMat);
-    frontWheel.rotation.z = Math.PI / 2;
-    frontWheel.position.set(0, 0.25, -0.7);
-    group.add(frontWheel);
-
-    // Rear wheel (black)
-    const rearWheel = new THREE.Mesh(wheelGeo, wheelMat);
-    rearWheel.rotation.z = Math.PI / 2;
-    rearWheel.position.set(0, 0.25, 0.7);
-    group.add(rearWheel);
-
-    // Rider body (blue)
-    const riderGeo = new THREE.BoxGeometry(0.4, 0.7, 0.5);
-    const riderMat = new THREE.MeshStandardMaterial({ color: 0x2244cc, flatShading: true });
-    const rider = new THREE.Mesh(riderGeo, riderMat);
-    rider.position.set(0, 1.2, 0.1);
-    group.add(rider);
-
-    // Head (skin tone)
-    const headGeo = new THREE.BoxGeometry(0.3, 0.3, 0.3);
-    const headMat = new THREE.MeshStandardMaterial({ color: 0xffcc99, flatShading: true });
-    const head = new THREE.Mesh(headGeo, headMat);
-    head.position.set(0, 1.75, -0.05);
-    group.add(head);
-
-    return group;
+    const factory = new BikeModelFactory();
+    return factory.createPlayerBike();
   }
 }

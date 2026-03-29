@@ -1,5 +1,5 @@
-import * as THREE from 'three';
 import { Bike } from '@/entities/Bike';
+import { BikeModelFactory } from '@/rendering/BikeModelFactory';
 import { Road } from '@/world/Road';
 import { clamp, randomRange } from '@/utils/MathUtils';
 import { CombatSystem } from '@/combat/CombatSystem';
@@ -32,15 +32,10 @@ export class AiBike {
     this.targetLane = randomRange(-0.5, 0.5);
     this.laneChangeInterval = randomRange(2, 5);
 
-    // Recolor bike body by personality
-    const color = PERSONALITY_COLORS[personality];
-    // The first child of the mesh group is the body box
-    const bodyMesh = this.bike.mesh.children[0] as THREE.Mesh;
-    if (bodyMesh && bodyMesh.isMesh && bodyMesh.material instanceof THREE.MeshStandardMaterial) {
-      const mat = bodyMesh.material.clone() as THREE.MeshStandardMaterial;
-      mat.color.setHex(color);
-      bodyMesh.material = mat;
-    }
+    // Replace bike mesh with personality-specific model
+    const factory = new BikeModelFactory();
+    const newMesh = factory.createAiBike(personality, PERSONALITY_COLORS[personality]);
+    this.bike.mesh = newMesh;
   }
 
   updateRacing(dt: number): void {
