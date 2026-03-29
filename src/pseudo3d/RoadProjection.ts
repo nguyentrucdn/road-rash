@@ -15,9 +15,9 @@ export interface ProjectedSegment {
   clip: number;          // Y position for clipping (top of this segment band)
 }
 
-const CAMERA_HEIGHT = 1500;
-const CAMERA_DEPTH = 150;
+const CAMERA_DEPTH = 1.0;
 const DRAW_DISTANCE = 300; // segments ahead
+const WIDTH_FACTOR = 0.03; // controls how wide the road appears on screen
 
 export class RoadProjection {
   private screenWidth: number;
@@ -45,15 +45,15 @@ export class RoadProjection {
 
     const worldZ = playerZ + segmentsAhead * SEGMENT_LENGTH;
     const seg = road.getSegmentAt(worldZ);
-    const z = segmentsAhead * SEGMENT_LENGTH;
 
-    const scale = CAMERA_DEPTH / z;
+    // Use segment index as z (not world meters) — gives scale 1.0 at nearest, ~0 at horizon
+    const scale = CAMERA_DEPTH / segmentsAhead;
     const rawScreenY = this.roadY + (this.screenHeight - this.roadY) * scale;
     const screenY = Math.min(this.screenHeight - 1, rawScreenY);
 
     if (screenY < this.roadY) return null;
 
-    const screenWidth = seg.width * scale * this.screenWidth * 0.05;
+    const screenWidth = seg.width * scale * this.screenWidth * WIDTH_FACTOR;
 
     return {
       screenX: this.screenWidth / 2,
@@ -78,9 +78,9 @@ export class RoadProjection {
     for (let i = 1; i <= DRAW_DISTANCE; i++) {
       const worldZ = playerZ + i * SEGMENT_LENGTH;
       const seg = road.getSegmentAt(worldZ);
-      const z = i * SEGMENT_LENGTH;
 
-      const scale = CAMERA_DEPTH / z;
+      // Use segment index as z — scale is 1.0 at nearest, approaches 0 at horizon
+      const scale = CAMERA_DEPTH / i;
 
       // Accumulate curve offset (horizontal shift)
       cumulativeX += seg.curve * scale * 2;
@@ -89,7 +89,7 @@ export class RoadProjection {
 
       const screenY = this.roadY + (this.screenHeight - this.roadY) * scale + cumulativeY;
       const screenX = this.screenWidth / 2 + cumulativeX * this.screenWidth * 0.3;
-      const screenWidth = seg.width * scale * this.screenWidth * 0.05;
+      const screenWidth = seg.width * scale * this.screenWidth * WIDTH_FACTOR;
 
       if (screenY < 0 || screenY > this.screenHeight) continue;
 
@@ -120,12 +120,15 @@ export class RoadProjection {
     const dz = spriteWorldZ - playerZ;
     if (dz <= 0 || dz > DRAW_DISTANCE * SEGMENT_LENGTH) return null;
 
-    const scale = CAMERA_DEPTH / (dz / SEGMENT_LENGTH);
+    // Convert world distance to segment index for consistent scaling
+    const segIndex = dz / SEGMENT_LENGTH;
+    if (segIndex < 0.5) return null; // too close
+    const scale = CAMERA_DEPTH / segIndex;
     const screenY = this.roadY + (this.screenHeight - this.roadY) * scale;
 
     // Calculate cumulative curve offset up to this Z
     let cumulativeX = 0;
-    const segCount = Math.floor(dz / SEGMENT_LENGTH);
+    const segCount = Math.floor(segIndex);
     for (let i = 1; i <= segCount; i++) {
       const wz = playerZ + i * SEGMENT_LENGTH;
       const seg = road.getSegmentAt(wz);
@@ -134,7 +137,7 @@ export class RoadProjection {
     }
 
     const roadCenterX = this.screenWidth / 2 + cumulativeX * this.screenWidth * 0.3;
-    const screenX = roadCenterX + spriteWorldX * scale * this.screenWidth * 0.05;
+    const screenX = roadCenterX + spriteWorldX * scale * this.screenWidth * WIDTH_FACTOR;
 
     if (screenY < 0 || screenY > this.screenHeight) return null;
 
