@@ -65,10 +65,11 @@ export class RoadDrawer {
     projection: RoadProjection,
     road: Road,
     playerZ: number,
+    playerX: number,
     screenWidth: number,
     screenHeight: number,
   ): void {
-    const segments = projection.projectAll(road, playerZ);
+    const segments = projection.projectAll(road, playerZ, playerX);
     if (segments.length < 2) return;
 
     // Draw from back (horizon) to front (camera) — painter's algorithm

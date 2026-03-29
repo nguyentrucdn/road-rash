@@ -35,13 +35,13 @@ export class SceneryRenderer {
     this.placements.sort((a, b) => b.z - a.z);
   }
 
-  draw(ctx: CanvasRenderingContext2D, playerZ: number, road: Road): void {
+  draw(ctx: CanvasRenderingContext2D, playerZ: number, playerX: number, road: Road): void {
     for (const p of this.placements) {
       const dz = p.z - playerZ;
       if (dz < -50 || dz > 1500) continue;
 
       const worldX = p.side * p.offset;
-      const pos = this.projection.projectSprite(worldX, p.z, playerZ, road);
+      const pos = this.projection.projectSprite(worldX, p.z, playerZ, playerX, road);
       if (!pos || pos.scale < 0.01) continue;
 
       const sprite = this.sprites.getScenerySprite(p.type);

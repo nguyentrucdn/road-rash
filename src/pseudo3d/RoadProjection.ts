@@ -69,8 +69,9 @@ export class RoadProjection {
     };
   }
 
-  /** Project all visible segments, applying curve and hill accumulation. */
-  projectAll(road: Road, playerZ: number): ProjectedSegment[] {
+  /** Project all visible segments, applying curve and hill accumulation.
+   *  playerX shifts the road so the player appears centered on screen. */
+  projectAll(road: Road, playerZ: number, playerX: number = 0): ProjectedSegment[] {
     const results: ProjectedSegment[] = [];
     let cumulativeX = 0;
     let cumulativeY = 0;
@@ -88,7 +89,9 @@ export class RoadProjection {
       cumulativeY += seg.hill * scale * 1.5;
 
       const screenY = this.roadY + (this.screenHeight - this.roadY) * scale + cumulativeY;
-      const screenX = this.screenWidth / 2 + cumulativeX * this.screenWidth * 0.3;
+      // Offset road by player's lateral position so player stays centered
+      const playerOffset = -playerX * scale * this.screenWidth * WIDTH_FACTOR;
+      const screenX = this.screenWidth / 2 + cumulativeX * this.screenWidth * 0.3 + playerOffset;
       const screenWidth = seg.width * scale * this.screenWidth * WIDTH_FACTOR;
 
       if (screenY < 0 || screenY > this.screenHeight) continue;
@@ -110,11 +113,13 @@ export class RoadProjection {
     return results;
   }
 
-  /** Get screen position for a sprite at given world coordinates. */
+  /** Get screen position for a sprite at given world coordinates.
+   *  playerX ensures sprites are positioned relative to the player's view. */
   projectSprite(
     spriteWorldX: number,
     spriteWorldZ: number,
     playerZ: number,
+    playerX: number,
     road: Road,
   ): { screenX: number; screenY: number; scale: number } | null {
     const dz = spriteWorldZ - playerZ;
@@ -136,7 +141,9 @@ export class RoadProjection {
       cumulativeX += seg.curve * s * 2;
     }
 
-    const roadCenterX = this.screenWidth / 2 + cumulativeX * this.screenWidth * 0.3;
+    // Position relative to player: (spriteX - playerX) puts player at center
+    const playerOffset = -playerX * scale * this.screenWidth * WIDTH_FACTOR;
+    const roadCenterX = this.screenWidth / 2 + cumulativeX * this.screenWidth * 0.3 + playerOffset;
     const screenX = roadCenterX + spriteWorldX * scale * this.screenWidth * WIDTH_FACTOR;
 
     if (screenY < 0 || screenY > this.screenHeight) return null;

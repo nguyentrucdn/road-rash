@@ -72,6 +72,7 @@ export class PseudoRenderer {
     const w = this.canvas.width;
     const h = this.canvas.height;
     const playerZ = playerBike.z;
+    const playerX = playerBike.x;
     const ctx = this.ctx;
 
     // Accumulate curve for parallax scrolling
@@ -88,27 +89,26 @@ export class PseudoRenderer {
     this.parallax.updateScroll(this.curveAccumulator);
     this.parallax.draw(ctx, w, this.projection.horizonY);
 
-    // 4. Road
-    this.roadDrawer.draw(ctx, this.projection, road, playerZ, w, h);
+    // 4. Road — pass playerX so road stays centered on player
+    this.roadDrawer.draw(ctx, this.projection, road, playerZ, playerX, w, h);
 
     // 5. Collect all z-sorted drawables (scenery + traffic + AI bikes)
-    // We need to draw back-to-front, so we interleave everything by Z
 
-    // 5a. Scenery (already sorted internally, draws back to front)
-    this.sceneryRenderer.draw(ctx, playerZ, road);
+    // 5a. Scenery
+    this.sceneryRenderer.draw(ctx, playerZ, playerX, road);
 
     // 5b. Traffic (sorted by Z, back to front)
     const sortedTraffic = [...traffic].sort((a, b) => b.z - a.z);
     for (const t of sortedTraffic) {
       if (t.z - playerZ < -20 || t.z - playerZ > 1500) continue;
-      this.spriteRenderer.drawVehicle(ctx, t.type, t.direction, t.x, t.z, playerZ, road);
+      this.spriteRenderer.drawVehicle(ctx, t.type, t.direction, t.x, t.z, playerZ, playerX, road);
     }
 
     // 5c. AI bikes (sorted by Z, back to front)
     const sortedAi = [...aiBikes].sort((a, b) => b.bike.z - a.bike.z);
     for (const ai of sortedAi) {
       if (ai.bike.z - playerZ < -20 || ai.bike.z - playerZ > 1500) continue;
-      this.spriteRenderer.drawBike(ctx, ai.personality, ai.frame, ai.bike.x, ai.bike.z, playerZ, road);
+      this.spriteRenderer.drawBike(ctx, ai.personality, ai.frame, ai.bike.x, ai.bike.z, playerZ, playerX, road);
     }
 
     // 6. Player bike (fixed screen position)

@@ -16,9 +16,10 @@ export class SpriteRenderer {
     worldX: number,
     worldZ: number,
     playerZ: number,
+    playerX: number,
     road: Road,
   ): void {
-    const pos = this.projection.projectSprite(worldX, worldZ, playerZ, road);
+    const pos = this.projection.projectSprite(worldX, worldZ, playerZ, playerX, road);
     if (!pos) return;
 
     const frames = this.sprites.getBikeFrames(id);
@@ -63,9 +64,10 @@ export class SpriteRenderer {
     worldX: number,
     worldZ: number,
     playerZ: number,
+    playerX: number,
     road: Road,
   ): void {
-    const pos = this.projection.projectSprite(worldX, worldZ, playerZ, road);
+    const pos = this.projection.projectSprite(worldX, worldZ, playerZ, playerX, road);
     if (!pos) return;
 
     const sprites = this.sprites.getVehicleSprite(vehicleType);
