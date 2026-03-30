@@ -69,34 +69,35 @@ export class RoadProjection {
     };
   }
 
-  /** Project all visible segments, applying curve and hill accumulation.
-   *  Road is always centered — curves come from cumulativeX accumulation. */
+  /** Project all visible segments with curve and hill effects.
+   *  The nearest segment is ALWAYS at screen center. Each subsequent segment
+   *  shifts relative to the previous one by (curve * CURVE_PX_PER_SEG) pixels.
+   *  This creates the classic pseudo-3D road bend visual. */
   projectAll(road: Road, playerZ: number, _playerX: number = 0): ProjectedSegment[] {
     const results: ProjectedSegment[] = [];
-    let cumulativeX = 0;
-    let cumulativeY = 0;
+    const CURVE_PX = 2.0;  // pixels of horizontal shift per segment per unit of curve
+    const HILL_PX = 1.5;   // pixels of vertical shift per segment per unit of hill
+
+    // Start at screen center — nearest segment is always centered
+    let runningX = this.screenWidth / 2;
+    let runningY = 0; // cumulative hill offset in pixels
 
     for (let i = 1; i <= DRAW_DISTANCE; i++) {
       const worldZ = playerZ + i * SEGMENT_LENGTH;
       const seg = road.getSegmentAt(worldZ);
-
-      // Use segment index as z — scale is 1.0 at nearest, approaches 0 at horizon
       const scale = CAMERA_DEPTH / i;
 
-      // Accumulate curve offset (horizontal shift)
-      cumulativeX += seg.curve * scale * 2;
-      // Accumulate hill offset (vertical shift)
-      cumulativeY += seg.hill * scale * 1.5;
+      // Each segment shifts from the previous one — linear accumulation
+      runningX += seg.curve * CURVE_PX;
+      runningY += seg.hill * HILL_PX;
 
-      const screenY = this.roadY + (this.screenHeight - this.roadY) * scale + cumulativeY;
-      // Road always centered — nearest segment at screenWidth/2, curves shift distant segments
-      const screenX = this.screenWidth / 2 + cumulativeX * this.screenWidth * 0.3;
+      const screenY = this.roadY + (this.screenHeight - this.roadY) * scale + runningY;
       const screenWidth = seg.width * scale * this.screenWidth * WIDTH_FACTOR;
 
       if (screenY < 0 || screenY > this.screenHeight) continue;
 
       results.push({
-        screenX,
+        screenX: runningX,
         screenY,
         screenWidth,
         scale,
@@ -113,7 +114,7 @@ export class RoadProjection {
   }
 
   /** Get screen position for a sprite at given world coordinates.
-   *  playerX ensures sprites are positioned relative to the player's view. */
+   *  Uses the same segment-relative curve accumulation as projectAll. */
   projectSprite(
     spriteWorldX: number,
     spriteWorldZ: number,
@@ -124,24 +125,22 @@ export class RoadProjection {
     const dz = spriteWorldZ - playerZ;
     if (dz <= 0 || dz > DRAW_DISTANCE * SEGMENT_LENGTH) return null;
 
-    // Convert world distance to segment index for consistent scaling
     const segIndex = dz / SEGMENT_LENGTH;
-    if (segIndex < 0.5) return null; // too close
+    if (segIndex < 0.5) return null;
     const scale = CAMERA_DEPTH / segIndex;
     const screenY = this.roadY + (this.screenHeight - this.roadY) * scale;
 
-    // Calculate cumulative curve offset up to this Z
-    let cumulativeX = 0;
+    // Same curve accumulation as projectAll — segment-relative, starting from center
+    const CURVE_PX = 2.0;
+    let roadCenterX = this.screenWidth / 2;
     const segCount = Math.floor(segIndex);
     for (let i = 1; i <= segCount; i++) {
       const wz = playerZ + i * SEGMENT_LENGTH;
       const seg = road.getSegmentAt(wz);
-      const s = CAMERA_DEPTH / i;
-      cumulativeX += seg.curve * s * 2;
+      roadCenterX += seg.curve * CURVE_PX;
     }
 
-    // Sprite position relative to player: (spriteX - playerX) centers the view on the player
-    const roadCenterX = this.screenWidth / 2 + cumulativeX * this.screenWidth * 0.3;
+    // Sprite lateral position relative to player
     const relativeX = spriteWorldX - playerX;
     const screenX = roadCenterX + relativeX * scale * this.screenWidth * WIDTH_FACTOR;
 
